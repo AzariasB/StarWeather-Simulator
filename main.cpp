@@ -37,7 +37,7 @@
 
 /**
 SETUP :
-command 1 (WeatherStation folder) : sudo socat PTY,link=./virtual-tty,raw,echo=0 -
+command 1 (WeatherStation folder) : socat PTY,link=./virtual-tty,raw,echo=0 -
 command 2 (WeatherSimulator folder) : socat PTY,link=./arduino-sim,raw,echo=0 PTY,link=../../../WeatherStation/build/Debug/virtual-tty,raw,echo=0
 command 3 (WeatherSimulator folder): ./WeatherSimulator
 command 4 (WeatherStation folder): ./WeatherStation

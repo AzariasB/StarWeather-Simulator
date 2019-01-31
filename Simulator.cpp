@@ -29,122 +29,165 @@
  * Created on 31/12/2018
  */
 #include "Simulator.hpp"
+#include <bitset>
 
-QByteArray Simulator::SUCCESS = QByteArray(1, SUCCESS_BIT);
 
 Simulator::Simulator(QSerialPort &port, QObject *parent) : QObject(parent),
-    m_sensor1(500),
-    m_sensor2(600),
-    m_sensor3(700),
+    m_sensor1(1000),
+    m_sensor2(500),
+    m_sensor3(200),
     m_port(port)
 {
     m_mode2Timer.setSingleShot(false);
-    m_mode2Timer.setInterval(30);
+    m_mode2Timer.setInterval(3000);
 
     connect(&port, &QSerialPort::readyRead, [&](){
         QByteArray data = port.readAll();
         this->readCommand(data);
     });
 
-    connect(&m_mode2Timer, &QTimer::timeout, [&](){ this->sendAllValues(); });
+    connect(&m_mode2Timer, &QTimer::timeout, [&](){ this->sendAllValues(false); });
 
-    connect(&m_sensor1, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 1); });
-    connect(&m_sensor2, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 2); });
-    connect(&m_sensor3, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 3); });
+    connect(&m_sensor1, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 1); });
+    connect(&m_sensor2, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 2); });
+    connect(&m_sensor3, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 3); });
 }
 
-inline QByteArray Simulator::toData(qint16 value, qint8 sensorId) const
+inline QByteArray Simulator::toData(qint8 sendingMode, qint16 value, qint8 frequency, qint8 sensorId) const
 {
-    qint16 data = static_cast<qint16>((static_cast<qint16>(sensorId & 0b11) << 10) | (value & TEN_BITS));
-    qint8 firstBits = static_cast<qint8>(data & 0xFF);
-    qint8 lastBits = static_cast<qint8>( (data & 0xFF00) >> 8 );
+    std::bitset<16> data = frequency & FREQUENCY_MASK;
+    data <<= 2;
+    data |= sensorId & SENSORID_MASK;
+    data <<= 10;
+    data |= value & VALUE_MASK;
+
     QByteArray res;
-    res.append(static_cast<char>(0));//Indicate we send a value
-    res.append(lastBits);
-    res.append(firstBits);
+    if(sendingMode == SEND_MODE1_DATA){
+        res.append(char(sendingMode));//Indicate we send a value
+    }
+    ulong total = data.to_ulong();
+    quint8 bigBits = quint8((total & 0xFF00) >> 8) & 0xFF;
+    res.append(bigBits);
+    quint8 smallBits = quint8( total & quint8(0x00FF));
+    res.append(smallBits);
     return res;
 }
 
-void Simulator::receiveValue(qint16 value, qint8 sensorId)
+void Simulator::receiveValue(qint16 value, qint8 freq, qint8 sensorId)
 {
-    QByteArray realData = toData(value, sensorId);
     switch (m_mode) {
     case WORKING_MODE::NO_MODE:return;
     case WORKING_MODE::MODE_1:
-        m_port.write(realData);
+        m_port.write(toData(SEND_MODE1_DATA, value, freq, sensorId));
         m_port.flush();
         return;
     case WORKING_MODE::MODE_2:
+        if(m_values.size() >= MAX_VALUES){
+            m_values.remove(0,1);
+        }
+        m_values.append(toData(SEND_MODE2_DATA, value, freq, sensorId));
+        return;
     case WORKING_MODE::MODE_3:
         if(m_values.size() >= MAX_VALUES){
-            m_values.removeFirst();
+            m_values.remove(0, 1);
         }
-        m_values.append(realData);
+        m_values.append(toData(GET_DATA, value, freq, sensorId));
         return;
     }
 }
 
-void Simulator::sendAllValues()
+void Simulator::sendAllValues(bool forced)
 {
     QByteArray values;
-    values.setNum(m_values.size());
-    m_port.write(values);
-    for(const auto &val : m_values){
-        m_port.write(val);
+    if(m_values.size() > MAX_VALUES){
+        qWarning() << "More values than possible";
     }
+    int size = m_values.size();
+    qDebug() << "Sending a pack of " << size  << " values = " << size / 2;
+    size >>= 1;
+    if(forced){
+        values.append(GET_DATA);
+    } else {
+        values.append(SEND_MODE2_DATA);
+    }
+    values.append(char((size >> 8) & 0xFF));
+    values.append(char(size & 0xFF));
+    m_values.prepend(values);
+    m_port.write(m_values);
     m_port.flush();
     m_values.clear();
 }
 
+
+QByteArray Simulator::success(qint8 command)
+{
+    QByteArray arr;
+    arr.append(command);
+    arr.append(SUCCESS_BIT);
+    return arr;
+}
+
+QByteArray Simulator::failure(qint8 command)
+{
+    QByteArray arr;
+    arr.append(command);
+    arr.append(ERROR_BIT);
+    return arr;
+}
+
 QByteArray Simulator::setCurrentMode(WORKING_MODE nwMode)
 {
+    qint8 modeInt = static_cast<qint8>(nwMode);
     if(nwMode == m_mode){
-        return QByteArray(1, MODE_ALREADY_STARTED);
+        return failure(modeInt);
     }
     if(nwMode != WORKING_MODE::NO_MODE && m_mode != WORKING_MODE::NO_MODE){
-        return QByteArray(1, OTHER_MODE_RUNNING);
+        return failure(modeInt);
     }
     m_mode = nwMode;
-    return SUCCESS;
+    m_mode2Timer.stop();
+    return success(modeInt);
 }
+
 
 void Simulator::readCommand(const QByteArray &array)
 {
-    if(array.size() < 2) return;
+    if(array.isEmpty()) return;
     qint8 first = array.at(0);
-    qint8 data = array.at(1);
-    qWarning() << "Received command " << QString::number(first) << " - with data : " << QString::number(data);
+    qint8 data = array.size() > 1 ? array.at(1) : 0;
+    qWarning() << "Received command " << QString::number(first);
     switch (first) {
-    case 0x0:
+    case STOP_MODE:
         m_port.write(setCurrentMode(WORKING_MODE::NO_MODE));
         break;
-    case 0x1:
+    case START_MODE_1:
         m_port.write(setCurrentMode(WORKING_MODE::MODE_1));
         break;
-    case 0x2:
+    case START_MODE_2:
         m_port.write(setCurrentMode(WORKING_MODE::MODE_2));
-        return;
-    case 0x3:
+        m_mode2Timer.start();
+        break;
+    case START_MODE_3:
         m_port.write(setCurrentMode(WORKING_MODE::MODE_3));
         break;
-    case 0x4:
-        sendAllValues();
+    case GET_DATA:
+        sendAllValues(true);
         return;
-    case 0x5:
+    case CONFIGURE_FE_1:
         m_sensor1.setEmitingSpeed(data);
-        m_port.write(SUCCESS);
+        m_port.write(success(CONFIGURE_FE_1));
         break;
-    case 0x6:
+    case CONFIGURE_FE_2:
         m_sensor2.setEmitingSpeed(data);
-        m_port.write(SUCCESS);
+        m_port.write(success(CONFIGURE_FE_2));
         break;
-    case 0x7:
+    case CONFIGURE_FE_3:
         m_sensor3.setEmitingSpeed(data);
-        m_port.write(SUCCESS);
+        m_port.write(success(CONFIGURE_FE_3));
         break;
-    case 0x8:
+    case CONFIGURE_MODE_2:
         m_mode2Timer.setInterval(data);
-        m_port.write(SUCCESS);
+        m_port.write(success(CONFIGURE_MODE_2));
         break;
     }
     m_port.flush();

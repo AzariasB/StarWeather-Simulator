@@ -35,10 +35,14 @@
 #include <QtSerialPort>
 #include "Sensor.hpp"
 
-constexpr int MAX_VALUES = std::numeric_limits<int>::max();
-constexpr qint8 SUCCESS_BIT = 0x1;
-constexpr qint8 MODE_ALREADY_STARTED = 0x2;
-constexpr qint8 OTHER_MODE_RUNNING = 0x3;
+constexpr int MAX_VALUES = std::numeric_limits<quint16>::max();
+constexpr quint16 SIZE_MASK = 0xFFFF;
+constexpr qint8 SUCCESS_BIT = 0x0;
+constexpr qint8 ERROR_BIT = 0x1;
+
+constexpr qint16 SENSORID_MASK  = 0b0000000000000011;
+constexpr qint16 FREQUENCY_MASK = 0b0000000000001111;
+constexpr qint16 VALUE_MASK     = 0b0000001111111111;
 
 enum class WORKING_MODE : qint8 {
     NO_MODE = 0x0,
@@ -46,6 +50,21 @@ enum class WORKING_MODE : qint8 {
     MODE_2 = 0x2,
     MODE_3 = 0x3,
 };
+
+enum WeatherCommand : quint8 {
+    STOP_MODE = 0x0,
+    START_MODE_1 = 0x1,
+    START_MODE_2 = 0x2,
+    START_MODE_3 = 0x3,
+    GET_DATA = 0x4,
+    CONFIGURE_FE_1 = 0x5,
+    CONFIGURE_FE_2 = 0x6,
+    CONFIGURE_FE_3 = 0x7,
+    CONFIGURE_MODE_2 = 0x8,
+    SEND_MODE1_DATA = 0x9,
+    SEND_MODE2_DATA = 0xA
+};
+
 
 class Simulator : public QObject
 {
@@ -63,20 +82,23 @@ private:
 
     QTimer m_mode2Timer;
 
-    QVector<QByteArray> m_values;
+    QByteArray m_values;
 
     WORKING_MODE m_mode = WORKING_MODE::NO_MODE;
 
     void readCommand(const QByteArray &array);
 
-    void receiveValue(qint16 value, qint8 sensorId);
+    void receiveValue(qint16 value, qint8 freq, qint8 sensorId);
 
-    inline QByteArray toData(qint16 value, qint8 sensorId) const;
+    inline QByteArray toData(qint8 sendingMode, qint16 value, qint8 frequency, qint8 sensorId) const;
 
-    void sendAllValues();
+    void sendAllValues(bool forced);
 
     QByteArray setCurrentMode(WORKING_MODE nwMode);
 
-    static QByteArray SUCCESS;
+    static QByteArray success(qint8 command);
+
+    static QByteArray failure(qint8 command);
+
 };
 

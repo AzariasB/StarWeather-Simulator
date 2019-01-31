@@ -47,5 +47,6 @@ void Sensor::setEmitingSpeed(qint8 milliseconds)
 inline void Sensor::fakeValue()
 {
     qint16 rand = static_cast<qint16>(qrand() & TEN_BITS);
-    emit sensedValue(rand);
+    qint8 frequency = static_cast<qint8>(1 / (m_timer.interval() / 1000.f));
+    emit sensedValue(rand, frequency);
 }

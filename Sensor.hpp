@@ -44,7 +44,7 @@ public:
     void setEmitingSpeed(qint8 milliseconds);
 
 signals:
-    void sensedValue(qint16 value);
+    void sensedValue(qint16 value, qint8 frequency);
 
 private:
     QTimer m_timer;
