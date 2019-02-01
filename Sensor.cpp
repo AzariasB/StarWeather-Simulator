@@ -46,11 +46,12 @@ void Sensor::setEmitingSpeed(int milliseconds)
 
 quint8 Sensor::frequency() const
 {
-    return quint8(int(1.f / (m_timer.interval() / 1000.f)));
+    return static_cast<quint8>(int(1.f / m_timer.interval()) * 1000);
 }
 
 inline void Sensor::fakeValue()
 {
     qint16 rand = static_cast<qint16>(qrand() & TEN_BITS);
-    emit sensedValue(rand);
+    emit sensedValue(rand, m_timestamp);
+    m_timestamp += m_timer.interval();
 }

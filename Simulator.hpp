@@ -90,15 +90,21 @@ private:
 
     void readCommand(const QByteArray &array);
 
-    void receiveValue(qint16 value, qint8 sensorId);
+    void receiveValue(qint16 value, quint32 tmstp, qint8 sensorId);
 
-    inline QByteArray toData(qint8 sendingMode, qint16 value, qint8 sensorId) const;
+    inline QByteArray toData(qint8 sendingMode, quint32 timestamp, qint16 value, qint8 sensorId) const;
 
     void sendAllValues(bool forced);
 
     QByteArray getFrequencies();
 
     QByteArray setCurrentMode(WORKING_MODE nwMode);
+
+    bool sendByte(quint8 byte);
+
+    bool sendBytes(QVector<quint8> bytes);
+
+    bool sendBytes(const QByteArray &bytes);
 
     static QByteArray success(qint8 command);
 

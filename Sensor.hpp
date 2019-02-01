@@ -46,10 +46,12 @@ public:
     void setEmitingSpeed(int milliseconds);
 
 signals:
-    void sensedValue(qint16 value);
+    void sensedValue(qint16 value, quint32 timestamp);
 
 private:
     QTimer m_timer;
+
+    quint32 m_timestamp = 0;
 
     inline void fakeValue();
 };
