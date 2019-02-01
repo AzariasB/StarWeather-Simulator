@@ -139,10 +139,7 @@ QByteArray Simulator::setCurrentMode(WORKING_MODE nwMode)
 {
     qint8 modeInt = static_cast<qint8>(nwMode);
     if(nwMode == m_mode){
-        return failure(modeInt);
-    }
-    if(nwMode != WORKING_MODE::NO_MODE && m_mode != WORKING_MODE::NO_MODE){
-        return failure(modeInt);
+        return success(modeInt);
     }
     m_mode = nwMode;
     m_mode2Timer.stop();
