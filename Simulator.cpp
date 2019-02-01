@@ -33,9 +33,9 @@
 
 
 Simulator::Simulator(QSerialPort &port, QObject *parent) : QObject(parent),
-    m_sensor1(1000),
-    m_sensor2(500),
-    m_sensor3(200),
+    m_sensor1(100),
+    m_sensor2(200),
+    m_sensor3(1000),
     m_port(port)
 {
     m_mode2Timer.setSingleShot(false);
@@ -48,16 +48,14 @@ Simulator::Simulator(QSerialPort &port, QObject *parent) : QObject(parent),
 
     connect(&m_mode2Timer, &QTimer::timeout, [&](){ this->sendAllValues(false); });
 
-    connect(&m_sensor1, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 1); });
-    connect(&m_sensor2, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 2); });
-    connect(&m_sensor3, &Sensor::sensedValue, [&](qint16 val, qint8 freq){ this->receiveValue(val, freq, 3); });
+    connect(&m_sensor1, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 1); });
+    connect(&m_sensor2, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 2); });
+    connect(&m_sensor3, &Sensor::sensedValue, [&](qint16 val){ this->receiveValue(val, 3); });
 }
 
-inline QByteArray Simulator::toData(qint8 sendingMode, qint16 value, qint8 frequency, qint8 sensorId) const
+inline QByteArray Simulator::toData(qint8 sendingMode, qint16 value, qint8 sensorId) const
 {
-    std::bitset<16> data = frequency & FREQUENCY_MASK;
-    data <<= 2;
-    data |= sensorId & SENSORID_MASK;
+    std::bitset<16> data = sensorId & SENSORID_MASK;
     data <<= 10;
     data |= value & VALUE_MASK;
 
@@ -73,25 +71,25 @@ inline QByteArray Simulator::toData(qint8 sendingMode, qint16 value, qint8 frequ
     return res;
 }
 
-void Simulator::receiveValue(qint16 value, qint8 freq, qint8 sensorId)
+void Simulator::receiveValue(qint16 value, qint8 sensorId)
 {
     switch (m_mode) {
     case WORKING_MODE::NO_MODE:return;
     case WORKING_MODE::MODE_1:
-        m_port.write(toData(SEND_MODE1_DATA, value, freq, sensorId));
+        m_port.write(toData(SEND_MODE1_DATA, value, sensorId));
         m_port.flush();
         return;
     case WORKING_MODE::MODE_2:
         if(m_values.size() >= MAX_VALUES){
             m_values.remove(0,1);
         }
-        m_values.append(toData(SEND_MODE2_DATA, value, freq, sensorId));
+        m_values.append(toData(SEND_MODE2_DATA, value, sensorId));
         return;
     case WORKING_MODE::MODE_3:
         if(m_values.size() >= MAX_VALUES){
             m_values.remove(0, 1);
         }
-        m_values.append(toData(GET_DATA, value, freq, sensorId));
+        m_values.append(toData(GET_DATA, value, sensorId));
         return;
     }
 }
@@ -102,16 +100,17 @@ void Simulator::sendAllValues(bool forced)
     if(m_values.size() > MAX_VALUES){
         qWarning() << "More values than possible";
     }
-    int size = m_values.size();
-    qDebug() << "Sending a pack of " << size  << " values = " << size / 2;
+    quint16 size = static_cast<quint16>(m_values.size());
     size >>= 1;
+    qDebug() << "Sending a pack of " << size  << " values = " << size / 2  << " -> " << QString::number(size, 2) << " First = " << QString::number((size >> 8) & 0x00FF, 2);
     if(forced){
         values.append(GET_DATA);
     } else {
         values.append(SEND_MODE2_DATA);
     }
-    values.append(char((size >> 8) & 0xFF));
-    values.append(char(size & 0xFF));
+
+    values.append(char((size >> 8) & 0x00FF));
+    values.append(char(size & 0x00FF));
     m_values.prepend(values);
     m_port.write(m_values);
     m_port.flush();
@@ -146,6 +145,18 @@ QByteArray Simulator::setCurrentMode(WORKING_MODE nwMode)
     return success(modeInt);
 }
 
+QByteArray Simulator::getFrequencies()
+{
+    QByteArray res;
+    res.append(STOP_MODE);
+    res.append(m_sensor1.frequency());
+    res.append(m_sensor2.frequency());
+    qDebug() << m_sensor3.frequency();
+    res.append(m_sensor3.frequency());
+    quint8 mode2Freq = quint8(int(1.f / (m_mode2Timer.interval() / 1000.f)));
+    res.append(mode2Freq);
+    return res;
+}
 
 void Simulator::readCommand(const QByteArray &array)
 {
@@ -155,7 +166,12 @@ void Simulator::readCommand(const QByteArray &array)
     qWarning() << "Received command " << QString::number(first);
     switch (first) {
     case STOP_MODE:
-        m_port.write(setCurrentMode(WORKING_MODE::NO_MODE));
+        if(!m_started){
+            m_started = true;
+            m_port.write(getFrequencies());
+        } else {
+            m_port.write(setCurrentMode(WORKING_MODE::NO_MODE));
+        }
         break;
     case START_MODE_1:
         m_port.write(setCurrentMode(WORKING_MODE::MODE_1));

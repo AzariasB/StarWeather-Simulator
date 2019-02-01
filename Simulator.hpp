@@ -84,15 +84,19 @@ private:
 
     QByteArray m_values;
 
+    bool m_started = false;
+
     WORKING_MODE m_mode = WORKING_MODE::NO_MODE;
 
     void readCommand(const QByteArray &array);
 
-    void receiveValue(qint16 value, qint8 freq, qint8 sensorId);
+    void receiveValue(qint16 value, qint8 sensorId);
 
-    inline QByteArray toData(qint8 sendingMode, qint16 value, qint8 frequency, qint8 sensorId) const;
+    inline QByteArray toData(qint8 sendingMode, qint16 value, qint8 sensorId) const;
 
     void sendAllValues(bool forced);
+
+    QByteArray getFrequencies();
 
     QByteArray setCurrentMode(WORKING_MODE nwMode);
 

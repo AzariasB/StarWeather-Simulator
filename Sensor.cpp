@@ -38,15 +38,19 @@ Sensor::Sensor(int timer, QObject *parent) : QObject(parent),
     connect(&m_timer, &QTimer::timeout, [&](){ fakeValue(); });
 }
 
-void Sensor::setEmitingSpeed(qint8 milliseconds)
+void Sensor::setEmitingSpeed(int milliseconds)
 {
     m_timer.setInterval(milliseconds);
     m_timer.start();
 }
 
+quint8 Sensor::frequency() const
+{
+    return quint8(int(1.f / (m_timer.interval() / 1000.f)));
+}
+
 inline void Sensor::fakeValue()
 {
     qint16 rand = static_cast<qint16>(qrand() & TEN_BITS);
-    qint8 frequency = static_cast<qint8>(1 / (m_timer.interval() / 1000.f));
-    emit sensedValue(rand, frequency);
+    emit sensedValue(rand);
 }

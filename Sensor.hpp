@@ -41,10 +41,12 @@ class Sensor : public QObject
 public:
     explicit Sensor(int timer = 20, QObject *parent = nullptr);
 
-    void setEmitingSpeed(qint8 milliseconds);
+    quint8 frequency() const;
+
+    void setEmitingSpeed(int milliseconds);
 
 signals:
-    void sensedValue(qint16 value, qint8 frequency);
+    void sensedValue(qint16 value);
 
 private:
     QTimer m_timer;
