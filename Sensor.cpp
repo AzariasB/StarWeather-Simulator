@@ -29,6 +29,7 @@
  * Created on 31/12/2018
  */
 #include "Sensor.hpp"
+#include "Frequency.hpp"
 
 Sensor::Sensor(int timer, QObject *parent) : QObject(parent),
   m_timer()
@@ -38,15 +39,21 @@ Sensor::Sensor(int timer, QObject *parent) : QObject(parent),
     connect(&m_timer, &QTimer::timeout, [&](){ fakeValue(); });
 }
 
-void Sensor::setEmitingSpeed(int milliseconds)
+void Sensor::setEmitingSpeed(qint8 frequency)
 {
-    m_timer.setInterval(milliseconds);
+    m_timer.setInterval(toMilliseconds<int>(frequency));
     m_timer.start();
 }
 
 quint8 Sensor::frequency() const
 {
-    return static_cast<quint8>(int(1.f / m_timer.interval()) * 1000);
+    return toFrequency<quint8>(m_timer.interval());
+}
+
+void Sensor::restart()
+{
+    m_timestamp = 0;
+    m_timer.start();
 }
 
 inline void Sensor::fakeValue()

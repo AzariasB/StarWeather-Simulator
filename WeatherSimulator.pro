@@ -26,4 +26,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     Sensor.hpp \
-    Simulator.hpp
+    Simulator.hpp \
+    Frequency.hpp

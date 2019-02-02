@@ -39,7 +39,7 @@ Simulator::Simulator(QSerialPort &port, QObject *parent) : QObject(parent),
     m_port(port)
 {
     m_mode2Timer.setSingleShot(false);
-    m_mode2Timer.setInterval(3000);
+    m_mode2Timer.setInterval(5000);
 
     connect(&port, &QSerialPort::readyRead, [&](){
         QByteArray data = port.readAll();
@@ -106,6 +106,7 @@ bool Simulator::sendBytes(const QByteArray &bytes)
 
 void Simulator::receiveValue(qint16 value, quint32 tmstp, qint8 sensorId)
 {
+    if(!m_started) return;
     switch (m_mode) {
     case WORKING_MODE::NO_MODE:return;
     case WORKING_MODE::MODE_1:
@@ -133,8 +134,8 @@ void Simulator::sendAllValues(bool forced)
         qWarning() << "More values than possible";
     }
     quint16 size = static_cast<quint16>(m_values.size());
-    size >>= 1;
-    qDebug() << "Sending a pack of " << size  << " values = " << size / 2  << " -> " << QString::number(size, 2) << " First = " << QString::number((size >> 8) & 0x00FF, 2);
+    size /= 6;
+    qDebug() << "Sending a pack of " << size << " -> " << QString::number(size, 2) << " First = " << QString::number((size >> 8) & 0x00FF, 2);
     if(forced){
         values.append(GET_DATA);
     } else {
@@ -173,17 +174,18 @@ QByteArray Simulator::setCurrentMode(WORKING_MODE nwMode)
     }
     m_mode = nwMode;
     m_mode2Timer.stop();
+    m_started = m_mode != WORKING_MODE::NO_MODE;
     return success(modeInt);
 }
 
 QByteArray Simulator::getFrequencies()
 {
     QByteArray res;
-    res.append(STOP_MODE);
+    res.append(GET_FREQUENCIES);
     res.append(m_sensor1.frequency());
     res.append(m_sensor2.frequency());
     res.append(m_sensor3.frequency());
-    quint8 mode2Freq = quint8(int(1.f / (m_mode2Timer.interval() / 1000.f)));
+    quint8 mode2Freq = quint8(m_mode2Timer.interval() / 1000.f);
     res.append(mode2Freq);
     return res;
 }
@@ -191,46 +193,53 @@ QByteArray Simulator::getFrequencies()
 void Simulator::readCommand(const QByteArray &array)
 {
     if(array.isEmpty()) return;
-    qint8 first = array.at(0);
-    qint8 data = array.size() > 1 ? array.at(1) : 0;
-    qWarning() << "Received command " << QString::number(first);
-    switch (first) {
-    case STOP_MODE:
-        if(!m_started){
-            m_started = true;
-            sendBytes(getFrequencies());
-        } else {
+    QQueue<char> commands;
+    for(char c:  array){
+        commands.enqueue(c);
+    }
+
+    while(!commands.isEmpty()){
+        qint8 first = commands.dequeue();
+        qint8 data = commands.isEmpty() ? 0 : commands.dequeue();
+        qWarning() << "Received command " << QString::number(first);
+        switch (first) {
+        case STOP_MODE:
             sendBytes(setCurrentMode(WORKING_MODE::NO_MODE));
+            break;
+        case START_MODE_1:
+            sendBytes(setCurrentMode(WORKING_MODE::MODE_1));
+            break;
+        case START_MODE_2:
+            sendBytes(setCurrentMode(WORKING_MODE::MODE_2));
+            m_mode2Timer.start();
+            break;
+        case START_MODE_3:
+            sendBytes(setCurrentMode(WORKING_MODE::MODE_3));
+            break;
+        case GET_DATA:
+            sendAllValues(true);
+            return;
+        case CONFIGURE_FE_1:
+            m_sensor1.setEmitingSpeed(data);
+            sendBytes(success(CONFIGURE_FE_1));
+            break;
+        case CONFIGURE_FE_2:
+            m_sensor2.setEmitingSpeed(data);
+            sendBytes(success(CONFIGURE_FE_2));
+            break;
+        case CONFIGURE_FE_3:
+            m_sensor3.setEmitingSpeed(data);
+            sendBytes(success(CONFIGURE_FE_3));
+            break;
+        case CONFIGURE_MODE_2:
+            m_mode2Timer.setInterval(int(data) * 1000);
+            sendBytes(success(CONFIGURE_MODE_2));
+            break;
+        case GET_FREQUENCIES:
+            sendBytes(getFrequencies());
+            break;
+        default:
+            break;
         }
-        break;
-    case START_MODE_1:
-        sendBytes(setCurrentMode(WORKING_MODE::MODE_1));
-        break;
-    case START_MODE_2:
-        sendBytes(setCurrentMode(WORKING_MODE::MODE_2));
-        m_mode2Timer.start();
-        break;
-    case START_MODE_3:
-        sendBytes(setCurrentMode(WORKING_MODE::MODE_3));
-        break;
-    case GET_DATA:
-        sendAllValues(true);
-        return;
-    case CONFIGURE_FE_1:
-        m_sensor1.setEmitingSpeed(data);
-        sendBytes(success(CONFIGURE_FE_1));
-        break;
-    case CONFIGURE_FE_2:
-        m_sensor2.setEmitingSpeed(data);
-        sendBytes(success(CONFIGURE_FE_2));
-        break;
-    case CONFIGURE_FE_3:
-        m_sensor3.setEmitingSpeed(data);
-        sendBytes(success(CONFIGURE_FE_3));
-        break;
-    case CONFIGURE_MODE_2:
-        m_mode2Timer.setInterval(data);
-        sendBytes(success(CONFIGURE_MODE_2));
-        break;
     }
 }
