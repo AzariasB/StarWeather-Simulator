@@ -34,6 +34,7 @@
 Sensor::Sensor(int timer, QObject *parent) : QObject(parent),
   m_timer()
 {
+    m_value = static_cast<qint16>(qrand() & TEN_BITS);
     m_timer.setSingleShot(false);
     m_timer.start(timer);
     connect(&m_timer, &QTimer::timeout, [&](){ fakeValue(); });
@@ -58,7 +59,7 @@ void Sensor::restart()
 
 inline void Sensor::fakeValue()
 {
-    qint16 rand = static_cast<qint16>(qrand() & TEN_BITS);
-    emit sensedValue(rand, m_timestamp);
+    m_value = std::clamp<quint16>( (m_value + (qrand() % 60) - 30) & TEN_BITS , 0, 1024);
+    emit sensedValue(m_value, m_timestamp);
     m_timestamp += m_timer.interval();
 }

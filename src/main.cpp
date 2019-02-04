@@ -23,24 +23,42 @@
  */
 
 /*
- * File:   Frequency.hpp
+ * File:   main.cpp
  * Author: azarias
  *
- * Created on 2/2/2019
+ * Created on 14/12/2018
  */
-#ifndef FREQUENCY_HPP
-#define FREQUENCY_HPP
+#include <QCoreApplication>
+#include <QDebug>
+#include <QTimer>
+#include <QtSerialPort>
 
-template<typename U, typename T>
-U toFrequency(const T &milliseconds)
+#include "Simulator.hpp"
+
+/**
+Only works on Linux, allows the desktop to communicate with the simulator via serial connection.
+Both can still use std out to pring debugging information without sending it through the serial port
+
+SETUP :
+command 1 (WeatherStation folder) : socat PTY,link=./virtual-tty,raw,echo=0 -
+command 2 (WeatherSimulator folder) : socat PTY,link=./arduino-sim,raw,echo=0 PTY,link=../../../WeatherStation/build/Debug/virtual-tty,raw,echo=0
+command 3 (WeatherSimulator folder): ./WeatherSimulator
+command 4 (WeatherStation folder): ./WeatherStation
+*/
+
+
+int main(int argc, char *argv[])
 {
-    return U( (1.f / milliseconds) * 1000.f);
-}
+    QCoreApplication a(argc, argv);
+    QSerialPort port("./arduino-sim");
+    qWarning() << "Starting simulator ...";
 
-template<typename U, typename T>
-U toMilliseconds(const T &frequency)
-{
-    return U( (1.f / frequency) * 1000.f);
-}
+    if(!port.open(QIODevice::ReadWrite)){
+        qWarning() << port.errorString() << "\n" << port.error();
+        return -1;
+    }
 
-#endif // FREQUENCY_HPP
+    Simulator s(port, nullptr);
+
+    return a.exec();
+}

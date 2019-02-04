@@ -66,7 +66,12 @@ enum WeatherCommand : quint8 {
     GET_FREQUENCIES = 0xB
 };
 
-
+/**
+ * @brief The Simulator class
+ * acts like the arduino
+ * received commands and sends
+ * data back
+ */
 class Simulator : public QObject
 {
     Q_OBJECT
@@ -75,40 +80,115 @@ public:
 
 
 private:
+    /**
+     * @brief All the sensors of the simulator
+     */
     Sensor m_sensor1;
     Sensor m_sensor2;
     Sensor m_sensor3;
 
+    /**
+     * @brief m_port the port used to communicate
+     * with the desktop
+     */
     QSerialPort &m_port;
 
+    /**
+     * @brief m_mode2Timer timer for the mode 2
+     * to send data on a regular basis
+     */
     QTimer m_mode2Timer;
 
+    /**
+     * @brief m_values sensed by the sensors
+     * is filled up until send, then cleared
+     */
     QByteArray m_values;
 
+    /**
+     * @brief m_started wether the simulator started
+     */
     bool m_started = false;
 
+    /**
+     * @brief m_mode the current mode of the simulator
+     */
     WORKING_MODE m_mode = WORKING_MODE::NO_MODE;
 
+    /**
+     * @brief readCommand when receiving data on the serialport
+     * @param array data received
+     */
     void readCommand(const QByteArray &array);
 
+    /**
+     * @brief receiveValue when a sensor generated a value, must store it on
+     * the m_values byte array
+     * @param value value generated
+     * @param tmstp time at which it was generated
+     * @param sensorId id of the sensor that generated the value
+     */
     void receiveValue(qint16 value, quint32 tmstp, qint8 sensorId);
 
+    /**
+     * @brief toData turns the given data of a generated value into a byte array
+     * @param sendingMode the mode used to send the value,
+     * if the mode is 'direct' we need to add that to the byte array
+     * otherwise, juste put the raw data
+     * @param timestamp time at which the data was generated
+     * @param value value generated
+     * @param sensorId sensor that generated the value
+     * @return the filled up byte array
+     */
     inline QByteArray toData(qint8 sendingMode, quint32 timestamp, qint16 value, qint8 sensorId) const;
 
+    /**
+     * @brief sendAllValues sends all the values stored up until now
+     * @param forced  true = mode 3 (asked by user), false = mode 2 (timer timed out)
+     */
     void sendAllValues(bool forced);
 
+    /**
+     * @brief getFrequencies sends to the desktop all the frequencies of the sensors
+     * @return byte array containing all the frequencies
+     */
     QByteArray getFrequencies();
 
+    /**
+     * @brief setCurrentMode changes the working mode of the simulator
+     * @param nwMode new mode to set
+     * @return the confirmation code back, to be sent to the desktop
+     */
     QByteArray setCurrentMode(WORKING_MODE nwMode);
 
+    /**
+     * In order to be as close as possible to the arduino, instead of sending full byte array,
+     * we send values byte by byte, thus simulating the aruino perfectly
+     * @brief sendByte sends a single byte
+     * @param byte the byte to send
+     * @return if the byte was successfully sent
+     */
     bool sendByte(quint8 byte);
 
-    bool sendBytes(QVector<quint8> bytes);
-
+    /**
+     * @brief sendBytes sends a byte array, byte by byte, to simulate the arduino
+     * @param bytes all the bytes to send
+     * @return if all the bytes where sent
+     */
     bool sendBytes(const QByteArray &bytes);
 
+    /**
+     * @brief success returns the 'success' byte for the given command
+     * @param command
+     * @return
+     */
     static QByteArray success(qint8 command);
 
+    /**
+     * @brief failure the 'error' message for the given command
+     * @param command
+     * @return
+     */
     static QByteArray failure(qint8 command);
 
 };

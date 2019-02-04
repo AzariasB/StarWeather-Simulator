@@ -23,37 +23,34 @@
  */
 
 /*
- * File:   Sensor.hpp
+ * File:   Frequency.hpp
  * Author: azarias
  *
- * Created on 31/12/2018
+ * Created on 2/2/2019
  */
-#pragma once
+#ifndef FREQUENCY_HPP
+#define FREQUENCY_HPP
 
-#include <QObject>
-#include <QTimer>
-
-#define TEN_BITS 0b0000001111111111
-
-class Sensor : public QObject
+/**
+ * @brief toFrequency from milliseconds to frequency
+ * @param milliseconds to translate
+ * @return
+ */
+template<typename U, typename T>
+U toFrequency(const T &milliseconds)
 {
-    Q_OBJECT
-public:
-    explicit Sensor(int timer = 20, QObject *parent = nullptr);
+    return U( (1.f / milliseconds) * 1000.f);
+}
 
-    quint8 frequency() const;
+/**
+ * @brief toFrequency from frequency to milliseconds
+ * @param frequency to translate
+ * @return
+ */
+template<typename U, typename T>
+U toMilliseconds(const T &frequency)
+{
+    return U( (1.f / frequency) * 1000.f);
+}
 
-    void setEmitingSpeed(qint8 frequency);
-
-    void restart();
-
-signals:
-    void sensedValue(qint16 value, quint32 timestamp);
-
-private:
-    QTimer m_timer;
-
-    quint32 m_timestamp = 0;
-
-    inline void fakeValue();
-};
+#endif // FREQUENCY_HPP

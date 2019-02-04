@@ -85,16 +85,6 @@ bool Simulator::sendByte(quint8 byte)
     m_port.flush();
 }
 
-
-bool Simulator::sendBytes(QVector<quint8> bytes)
-{
-    bool all = true;
-    for(quint8 byte : bytes){
-        all = sendByte(byte) && all;
-    }
-    return all;
-}
-
 bool Simulator::sendBytes(const QByteArray &bytes)
 {
     bool all = true;

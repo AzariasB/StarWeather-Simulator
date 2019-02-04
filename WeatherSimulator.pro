@@ -1,3 +1,9 @@
+#-------------------------------------------------
+#
+# Project created by QtCreator 2018-12-14T08:59:52
+#
+#-------------------------------------------------
+
 QT -= gui
 QT += serialport
 CONFIG += c++17 console
@@ -15,9 +21,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-        main.cpp \
-    Sensor.cpp \
-    Simulator.cpp
+        src/main.cpp \
+    src/Sensor.cpp \
+    src/Simulator.cpp
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -25,6 +31,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    Sensor.hpp \
-    Simulator.hpp \
-    Frequency.hpp
+    src/Sensor.hpp \
+    src/Simulator.hpp \
+    src/Frequency.hpp
