@@ -29,12 +29,13 @@
  * Created on 31/12/2018
  */
 #include "Sensor.hpp"
+#include <QRandomGenerator>
 #include "Frequency.hpp"
 
 Sensor::Sensor(int timer, QObject *parent) : QObject(parent),
   m_timer()
 {
-    m_value = static_cast<qint16>(qrand() & TEN_BITS);
+    m_value = static_cast<qint16>(QRandomGenerator::global()->bounded(0, 1024));
     m_timer.setSingleShot(false);
     m_timer.start(timer);
     connect(&m_timer, &QTimer::timeout, [&](){ fakeValue(); });
@@ -59,7 +60,8 @@ void Sensor::restart()
 
 inline void Sensor::fakeValue()
 {
-    m_value = std::clamp<quint16>( (m_value + (qrand() % 60) - 30) & TEN_BITS , 0, 1024);
-    emit sensedValue(m_value, m_timestamp);
+    qint16 value = m_value + QRandomGenerator::global()->bounded(-30, 30);
+    value = std::clamp<qint16>(value, 0, 1024);
+    emit sensedValue(value, m_timestamp);
     m_timestamp += m_timer.interval();
 }
