@@ -81,7 +81,7 @@ signals:
 private:
     QTimer m_timer;
 
-    quint16 m_value;
+    qint16 m_value;
 
     quint32 m_timestamp = 0;
 

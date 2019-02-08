@@ -38,7 +38,6 @@
 /**
 Only works on Linux, allows the desktop to communicate with the simulator via serial connection.
 Both can still use std out to pring debugging information without sending it through the serial port
-
 SETUP :
 command 1 (WeatherStation folder) : socat PTY,link=./virtual-tty,raw,echo=0 -
 command 2 (WeatherSimulator folder) : socat PTY,link=./arduino-sim,raw,echo=0 PTY,link=../../../WeatherStation/build/Debug/virtual-tty,raw,echo=0

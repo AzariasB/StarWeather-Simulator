@@ -33,8 +33,8 @@
 
 
 Simulator::Simulator(QSerialPort &port, QObject *parent) : QObject(parent),
-    m_sensor1(100),
-    m_sensor2(200),
+    m_sensor1(1000),
+    m_sensor2(1000),
     m_sensor3(1000),
     m_port(port)
 {
@@ -81,8 +81,7 @@ inline QByteArray Simulator::toData(qint8 sendingMode, quint32 timestamp,  qint1
 
 bool Simulator::sendByte(quint8 byte)
 {
-    m_port.write(QByteArray(1, byte));
-    m_port.flush();
+    return m_port.write(QByteArray(1, byte)) && m_port.flush();
 }
 
 bool Simulator::sendBytes(const QByteArray &bytes)
@@ -125,7 +124,6 @@ void Simulator::sendAllValues(bool forced)
     }
     quint16 size = static_cast<quint16>(m_values.size());
     size /= 6;
-    qDebug() << "Sending a pack of " << size << " -> " << QString::number(size, 2) << " First = " << QString::number((size >> 8) & 0x00FF, 2);
     if(forced){
         values.append(GET_DATA);
     } else {
@@ -165,6 +163,11 @@ QByteArray Simulator::setCurrentMode(WORKING_MODE nwMode)
     m_mode = nwMode;
     m_mode2Timer.stop();
     m_started = m_mode != WORKING_MODE::NO_MODE;
+    if(m_started){
+        m_sensor1.restart();
+        m_sensor2.restart();
+        m_sensor3.restart();
+    }
     return success(modeInt);
 }
 
@@ -191,7 +194,6 @@ void Simulator::readCommand(const QByteArray &array)
     while(!commands.isEmpty()){
         qint8 first = commands.dequeue();
         qint8 data = commands.isEmpty() ? 0 : commands.dequeue();
-        qWarning() << "Received command " << QString::number(first);
         switch (first) {
         case STOP_MODE:
             sendBytes(setCurrentMode(WORKING_MODE::NO_MODE));
