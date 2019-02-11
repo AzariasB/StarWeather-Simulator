@@ -22,3 +22,4 @@ socat PTY,link=./arduino-sim,raw,echo=0 PTY,link=../../../WeatherStation/build/D
 
 ```
 
+Is supposed to work with [Desktop applicaton available here](https://github.com/AzariasB/StarWeather-Desktop), to use without any arduino, [embedded app available here](https://github.com/Hraph/StarWeather-Embedded)
